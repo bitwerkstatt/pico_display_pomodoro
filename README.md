@@ -14,4 +14,4 @@ Just connect your Pico Display to a headered Pico W, install Pimoronis MicroPyth
 * Button A: Select different schedules (currently the classic 25/5 and the not so usual 50/10)
 * Button B: Select length of pause after four cycles have been done
 * Button X: Start / pause cycle
-* Button Y: Reset the device
+* Button Y: Reset the Timer (press 2x for safety)

@@ -4,73 +4,66 @@ import machine
 import network
 import ntptime
 from pimoroni import RGBLED
-from picographics import PicoGraphics, DISPLAY_PICO_DISPLAY, PEN_P4
+from picographics import PicoGraphics, DISPLAY_PICO_DISPLAY, PEN_P8
   
 
-def toggle_standby():
-    global standby, off_button_counter
-    if standby:
-        graphics.set_backlight(1.0)
-        led.set_rgb(255,0,0)
-    else:
-        graphics.set_backlight(0.0)
-        led.set_rgb(0,0,0)
-    off_button_counter = 0
-    standby = not standby
-
-
 def reset_off_counter():
-    global off_button_counter
-    off_button_counter = 0
+    global reset_button_counter
+    reset_button_counter = 0
 
 def start_pomodoro():
-    global ps_active, ps_current_state, ps_remaining_seconds, ps_cyles_done
-    if not ps_active:
-        led.set_rgb(0,255,0)
+    global ps_current_state, ps_remaining_seconds, ps_cyles_done
+    # Actual start
+    if ps_current_state==IDLE:
         ps_remaining_seconds = pomo_schedules[selected_schedule][0]*60
-        ps_current_state = 1
+        ps_current_state = WORK
         ps_cyles_done = 0
-        timer.init(period=1000, callback=progress_pomodoro)
+    # Resume
+    if ps_current_state == INTERRUPTED:
+        ps_current_state = ps_save_state
+    led.set_rgb(0,255,0)
+    period = 50 if DEV_MODE else 1000
+    timer.init(period=period, callback=progress_pomodoro)
 
 
 def pause_pomodoro():
-    global ps_active, ps_current_state, ps_remaining_seconds, ps_cyles_done
-    if ps_active:
+    global ps_current_state, ps_save_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
+    if (ps_current_state != IDLE) and (ps_current_state != INTERRUPTED):
         led.set_rgb(255,0,0)
-        ps_current_state = 0
+        ps_save_state = ps_current_state
+        ps_current_state = INTERRUPTED
         timer.deinit()
+        ps_interruptions += 1
+        draw_pomodoro()
 
 
 def reset_pomodoro():
-    global ps_active, ps_current_state, ps_remaining_seconds, ps_cyles_done
-    pass
+    global ps_current_state, ps_save_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
+    ps_current_state = IDLE
+    ps_save_state = IDLE
+    ps_cyles_done = 0
+    ps_interruptions = 0
+    ps_remaining_seconds = pomo_schedules[selected_schedule][0]*60
+    draw_pomodoro()
 
 
 def progress_pomodoro(pin):
-    global ps_active, ps_current_state, ps_remaining_seconds, ps_cyles_done
-    if ps_active: 
-        title = f"{state_descriptions[ps_current_state]}"       
-        remaining_time = f"{'{:02d}'.format(ps_remaining_seconds//60)}:{'{:02d}'.format(ps_remaining_seconds%60)}m"
-        draw_pomodoro(title=title, remaining=remaining_time)
-        ps_remaining_seconds -= 1
-        print(f"Remaining seconds: {ps_remaining_seconds}")
-        if ps_remaining_seconds == 0:
-            if ps_current_state == WORK:
-                ps_cyles_done += 1
-                print(f"Cycles done: {ps_cyles_done}")
-                if (ps_cyles_done%2) == 0:
-                    print("Switching to longbreak...")
-                    ps_current_state = LONG_BREAK
-                    ps_remaining_seconds = long_pauses[selected_pause]*60
-                else:
-                    print("Switching to normal break...")
-                    ps_current_state = BREAK
-                    ps_remaining_seconds = pomo_schedules[selected_schedule][1]*60
-            else:
-                print("Switching back to work...")
-                ps_current_state = WORK
-                ps_remaining_seconds = pomo_schedules[selected_schedule][1]*60
+    global ps_current_state, ps_remaining_seconds, ps_cyles_done
 
+    if ps_remaining_seconds == 0:
+        if ps_current_state == WORK:
+            ps_cyles_done += 1
+            if (ps_cyles_done%2) == 0:
+                ps_current_state = LONG_BREAK
+                ps_remaining_seconds = long_pauses[selected_pause]*60
+            else:
+                ps_current_state = NORMAL_BREAK
+                ps_remaining_seconds = pomo_schedules[selected_schedule][1]*60
+        else:
+            ps_current_state = WORK
+            ps_remaining_seconds = pomo_schedules[selected_schedule][1]*60
+    draw_pomodoro()
+    ps_remaining_seconds -= 1
 
 def draw_settings(title, message):
     graphics.set_pen(BLUE)
@@ -85,33 +78,33 @@ def draw_settings(title, message):
     graphics.update()
 
 
-def draw_pomodoro(title, remaining):
+def draw_pomodoro():
+    global ps_current_state
+    title = f"{state_descriptions[ps_current_state]}"           
+    remaining_time = f"{'{:02d}'.format(ps_remaining_seconds//60)}:{'{:02d}'.format(ps_remaining_seconds%60)}m"
     if ps_current_state == WORK:
         graphics.set_pen(GREEN)
-    elif ps_current_state == BREAK or ps_current_state == LONG_BREAK:
+    elif ps_current_state == NORMAL_BREAK or ps_current_state == LONG_BREAK:
         graphics.set_pen(RED)
     else:
-        graphics.set_pen(YELLOW)
+        graphics.set_pen(PUMPKIN)
     graphics.clear()
     graphics.set_pen(WHITE)
     graphics.set_font("bitmap8")
-    title_space = graphics.measure_text(title, fixed_width=True)
-    graphics.text(title, (WIDTH-title_space)//2, 5)
-    cycle_text = f"Cycles: {ps_cyles_done%4}, Today: {ps_cyles_done}"
-    graphics.text(cycle_text, 0, 107)
+    graphics.text(title, 5, 5)
+    cycle_text = f"Stats (C/TC/INT): {ps_cyles_done%4}/{ps_cyles_done}/{ps_interruptions}"
+    graphics.text(cycle_text, 5, 107)
     graphics.set_font("sans")
-    message_space = graphics.measure_text(remaining, 2.0)
-    graphics.text(remaining, (WIDTH-message_space)//2,HEIGHT//2)
+    message_space = graphics.measure_text(remaining_time, 2.0)
+    graphics.text(remaining_time, (WIDTH-message_space)//2,HEIGHT//2)
     
     graphics.update()
 
 def button_a_pressed(pin):
     global selected_schedule
-    if standby:
-        toggle_standby()
     reset_off_counter()
-    led.set_rgb(0,0,255)
-    if not ps_active:    
+    if ps_current_state == IDLE:    
+        led.set_rgb(0,0,255)
         selected_schedule = (selected_schedule + 1) % len(pomo_schedules)
         graphics.set_pen(BLUE)
         graphics.clear()
@@ -122,12 +115,9 @@ def button_a_pressed(pin):
 
 def button_b_pressed(pin):
     global selected_pause
-    if standby:
-        toggle_standby()
     reset_off_counter()
-
-    led.set_rgb(0,0,255)
-    if not ps_active:    
+    if ps_current_state == IDLE:
+        led.set_rgb(0,0,255)    
         selected_pause = (selected_pause + 1) % len(long_pauses)
         graphics.set_pen(BLUE)
         graphics.clear()
@@ -138,28 +128,24 @@ def button_b_pressed(pin):
 # Run / Pause
 def button_x_pressed(pin):
     global ps_active, ps_remaining_seconds, ps_current_state, ps_cyles_done
-    if standby:
-        toggle_standby()
     reset_off_counter()
-    if ps_active:
-        pause_pomodoro()
+    if ps_current_state == IDLE or ps_current_state == INTERRUPTED:
+        start_pomodoro()
     else:
-        start_pomodoro()        
-    ps_active = not ps_active
+        pause_pomodoro()
 
 # Reset and standby    
 def button_y_pressed(pin):
-    global off_button_counter
-    print("Button Y pressed")
-    if not ps_active:
-        off_button_counter += 1
-        if off_button_counter > 2:
-            toggle_standby()
+    global reset_button_counter
+    if ps_current_state == IDLE or ps_current_state == INTERRUPTED:
+        reset_button_counter += 1
+        if reset_button_counter == 2:
+            reset_pomodoro()
 
 
 
-# We use a landscape display with low color depth (16 colors)
-graphics = PicoGraphics(DISPLAY_PICO_DISPLAY, pen_type=PEN_P4, rotate=0)
+# We use a landscape display 
+graphics = PicoGraphics(DISPLAY_PICO_DISPLAY, pen_type=PEN_P8, rotate=0)
 
 # Status LED
 led = RGBLED(6, 7, 8)
@@ -168,6 +154,8 @@ led.set_rgb(255,0,0)
 # The timer
 timer = machine.Timer()
 
+DEV_MODE = True
+
 # So let's define those
 BLACK = graphics.create_pen(0,0,0)
 WHITE = graphics.create_pen(255,255,255)
@@ -175,33 +163,38 @@ RED = graphics.create_pen(255,0,0)
 YELLOW = graphics.create_pen(255,255,0)
 GREEN = graphics.create_pen(0, 255, 0)
 BLUE = graphics.create_pen(0,0,255)
+PUMPKIN = graphics.create_pen(255, 116, 23)
 
 WIDTH = graphics.get_bounds()[0]
 HEIGHT = graphics.get_bounds()[1]
 
-pomo_schedules = [(1,1),(50, 10), (25,5)]
-long_pauses = [1,10, 15, 20, 30, 60]
+pomo_schedules = [(50, 10), (25,5)]
+long_pauses = [10, 15, 20, 30, 60]
+
+IDLE = 0
+WORK = 1
+NORMAL_BREAK = 2
+LONG_BREAK = 3
+INTERRUPTED = 4
 
 selected_schedule = 0
 selected_pause = 0
-ps_active = False
-ps_current_state = 0 # 0=waiting, 1=work, 2=pause, 3=longpause
+ps_current_state = IDLE # 0=waiting, 1=work, 2=pause, 3=longpause
+ps_save_state = IDLE
 ps_cyles_done = 0
+ps_interruptions = 0
 ps_remaining_seconds = 0
 
-WAIT = 0
-WORK = 1
-BREAK = 2
-LONG_BREAK = 3
 
 state_descriptions = {
-    0: "Wait...",
-    1: "Work",
-    2: "Break",
-    3: "Long Break"
+    0: "Idle",
+    1: "Do some work!",
+    2: "Take a break!",
+    3: "Take a long break!",
+    4: "You got interrupted..."
 }
 
-off_button_counter = 0
+reset_button_counter = 0
 standby = False
 
 graphics.set_font("sans")
