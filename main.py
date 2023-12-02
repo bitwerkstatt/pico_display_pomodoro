@@ -87,7 +87,7 @@ def draw_pomodoro():
     elif ps_current_state == NORMAL_BREAK or ps_current_state == LONG_BREAK:
         graphics.set_pen(RED)
     else:
-        graphics.set_pen(PUMPKIN)
+        graphics.set_pen(ORANGE)
     graphics.clear()
     graphics.set_pen(WHITE)
     graphics.set_font("bitmap8")
@@ -154,22 +154,22 @@ led.set_rgb(255,0,0)
 # The timer
 timer = machine.Timer()
 
-DEV_MODE = True
+DEV_MODE = False # Set True for faster test runs
 
 # So let's define those
 BLACK = graphics.create_pen(0,0,0)
 WHITE = graphics.create_pen(255,255,255)
-RED = graphics.create_pen(255,0,0)
+RED = graphics.create_pen(239, 26, 45)
 YELLOW = graphics.create_pen(255,255,0)
-GREEN = graphics.create_pen(0, 255, 0)
-BLUE = graphics.create_pen(0,0,255)
-PUMPKIN = graphics.create_pen(255, 116, 23)
+GREEN = graphics.create_pen(23, 66, 34)
+BLUE = graphics.create_pen(33,115,184)
+ORANGE = graphics.create_pen(251, 170, 30)
 
 WIDTH = graphics.get_bounds()[0]
 HEIGHT = graphics.get_bounds()[1]
 
-pomo_schedules = [(50, 10), (25,5)]
-long_pauses = [10, 15, 20, 30, 60]
+pomo_schedules = [(25,5), (50, 10)]
+long_pauses = [20, 30, 60, 10, 15]
 
 IDLE = 0
 WORK = 1
