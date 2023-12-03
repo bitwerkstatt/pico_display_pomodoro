@@ -141,6 +141,7 @@ def button_y_pressed(pin):
         reset_button_counter += 1
         if reset_button_counter == 2:
             reset_pomodoro()
+            led.set_rgb(0,0,0)
 
 
 
@@ -197,11 +198,7 @@ state_descriptions = {
 reset_button_counter = 0
 standby = False
 
-graphics.set_font("sans")
-graphics.set_thickness(2)
-
-led.set_rgb(0,0,255)
-
+led.set_rgb(0,0,0)
 
 # Define the button handling using IRQs
 a_button = machine.Pin(12, machine.Pin.IN, machine.Pin.PULL_UP)
