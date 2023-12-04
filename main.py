@@ -213,6 +213,3 @@ x_button.irq(trigger=machine.Pin.IRQ_FALLING, handler = button_x_pressed)
 y_button = machine.Pin(15, machine.Pin.IN, machine.Pin.PULL_UP)
 y_button.irq(trigger=machine.Pin.IRQ_FALLING, handler = button_y_pressed)
 
-
-while True:
-    pass
