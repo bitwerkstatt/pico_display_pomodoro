@@ -53,7 +53,7 @@ def progress_pomodoro(pin):
     if ps_remaining_seconds == 0:
         if ps_current_state == WORK:
             ps_cyles_done += 1
-            if (ps_cyles_done%2) == 0:
+            if (ps_cyles_done%4) == 0:
                 ps_current_state = LONG_BREAK
                 ps_remaining_seconds = long_pauses[selected_pause]*60
             else:
@@ -61,7 +61,7 @@ def progress_pomodoro(pin):
                 ps_remaining_seconds = pomo_schedules[selected_schedule][1]*60
         else:
             ps_current_state = WORK
-            ps_remaining_seconds = pomo_schedules[selected_schedule][1]*60
+            ps_remaining_seconds = pomo_schedules[selected_schedule][0]*60
     draw_pomodoro()
     ps_remaining_seconds -= 1
 
