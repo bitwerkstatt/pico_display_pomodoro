@@ -18,31 +18,24 @@ def start_pomodoro():
         ps_remaining_seconds = pomo_schedules[selected_schedule][0]*60
         ps_current_state = WORK
         ps_cyles_done = 0
-    # Resume
-    if ps_current_state == INTERRUPTED:
-        ps_current_state = ps_save_state
     led.set_rgb(0,255,0)
     period = 50 if DEV_MODE else 1000
     timer.init(period=period, callback=progress_pomodoro)
 
 
 def pause_pomodoro():
-    global ps_current_state, ps_save_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
-    if (ps_current_state != IDLE) and (ps_current_state != INTERRUPTED):
-        led.set_rgb(255,0,0)
-        ps_save_state = ps_current_state
-        ps_current_state = INTERRUPTED
-        timer.deinit()
+    global ps_current_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
+    if ps_current_state == WORK:
         ps_interruptions += 1
-        draw_pomodoro()
+        print(ps_interruptions)
 
 
 def reset_pomodoro():
-    global ps_current_state, ps_save_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
+    global ps_current_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
     ps_current_state = IDLE
-    ps_save_state = IDLE
     ps_cyles_done = 0
     ps_interruptions = 0
+    timer.deinit()
     ps_remaining_seconds = pomo_schedules[selected_schedule][0]*60
     draw_pomodoro()
 
@@ -93,11 +86,11 @@ def draw_pomodoro():
     graphics.set_font("bitmap8")
     graphics.text(title, 5, 5)
     cycle_text = f"Stats (C/TC/INT): {ps_cyles_done%4}/{ps_cyles_done}/{ps_interruptions}"
+    print(cycle_text)
     graphics.text(cycle_text, 5, 107)
     graphics.set_font("sans")
     message_space = graphics.measure_text(remaining_time, 2.0)
-    graphics.text(remaining_time, (WIDTH-message_space)//2,HEIGHT//2)
-    
+    graphics.text(remaining_time, (WIDTH-message_space)//2,HEIGHT//2)  
     graphics.update()
 
 def button_a_pressed(pin):
@@ -125,23 +118,22 @@ def button_b_pressed(pin):
         info_text = f"{long_pauses[selected_pause]}"
         draw_settings("Selected long pause", info_text)
 
-# Run / Pause
+# Run / Interruption
 def button_x_pressed(pin):
     global ps_active, ps_remaining_seconds, ps_current_state, ps_cyles_done
     reset_off_counter()
-    if ps_current_state == IDLE or ps_current_state == INTERRUPTED:
+    if ps_current_state == IDLE:
         start_pomodoro()
-    else:
+    elif ps_current_state == WORK:
         pause_pomodoro()
 
-# Reset and standby    
+# Reset   
 def button_y_pressed(pin):
     global reset_button_counter
-    if ps_current_state == IDLE or ps_current_state == INTERRUPTED:
-        reset_button_counter += 1
-        if reset_button_counter == 2:
-            reset_pomodoro()
-            led.set_rgb(0,0,0)
+    reset_button_counter += 1
+    if reset_button_counter == 2:
+        reset_pomodoro()
+        led.set_rgb(0,0,0)
 
 
 
@@ -176,12 +168,10 @@ IDLE = 0
 WORK = 1
 NORMAL_BREAK = 2
 LONG_BREAK = 3
-INTERRUPTED = 4
 
 selected_schedule = 0
 selected_pause = 0
 ps_current_state = IDLE # 0=waiting, 1=work, 2=pause, 3=longpause
-ps_save_state = IDLE
 ps_cyles_done = 0
 ps_interruptions = 0
 ps_remaining_seconds = 0
@@ -191,14 +181,9 @@ state_descriptions = {
     0: "Idle",
     1: "Do some work!",
     2: "Take a break!",
-    3: "Take a long break!",
-    4: "You got interrupted..."
+    3: "Take a long break!"
 }
 
-reset_button_counter = 0
-standby = False
-
-led.set_rgb(0,0,0)
 
 # Define the button handling using IRQs
 a_button = machine.Pin(12, machine.Pin.IN, machine.Pin.PULL_UP)
@@ -213,3 +198,9 @@ x_button.irq(trigger=machine.Pin.IRQ_FALLING, handler = button_x_pressed)
 y_button = machine.Pin(15, machine.Pin.IN, machine.Pin.PULL_UP)
 y_button.irq(trigger=machine.Pin.IRQ_FALLING, handler = button_y_pressed)
 
+# Init
+reset_button_counter = 0
+standby = False
+
+led.set_rgb(0,0,0)
+draw_pomodoro()
