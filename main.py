@@ -3,9 +3,20 @@ import math
 import machine
 import network
 import ntptime
+from machine import Timer
 from pimoroni import RGBLED
 from picographics import PicoGraphics, DISPLAY_PICO_DISPLAY, PEN_P8
   
+
+def toggle_standby(pin):
+    global standby
+    standby = not standby
+    standby_timer.deinit()
+    if standby:
+        led.set_rgb(0,0,0)
+        graphics.set_backlight(0.0)
+    else:
+        graphics.set_backlight(1.0)
 
 def reset_off_counter():
     global reset_button_counter
@@ -13,6 +24,8 @@ def reset_off_counter():
 
 def start_pomodoro():
     global ps_current_state, ps_remaining_seconds, ps_cyles_done
+    # Disable the standby timer
+    standby_timer.deinit()
     # Actual start
     if ps_current_state==IDLE:
         ps_remaining_seconds = pomo_schedules[selected_schedule][0]*60
@@ -27,7 +40,6 @@ def pause_pomodoro():
     global ps_current_state, ps_remaining_seconds, ps_cyles_done, ps_interruptions
     if ps_current_state == WORK:
         ps_interruptions += 1
-        print(ps_interruptions)
 
 
 def reset_pomodoro():
@@ -86,7 +98,6 @@ def draw_pomodoro():
     graphics.set_font("bitmap8")
     graphics.text(title, 5, 5)
     cycle_text = f"Stats (C/TC/INT): {ps_cyles_done%4}/{ps_cyles_done}/{ps_interruptions}"
-    print(cycle_text)
     graphics.text(cycle_text, 5, 107)
     graphics.set_font("sans")
     message_space = graphics.measure_text(remaining_time, 2.0)
@@ -95,6 +106,7 @@ def draw_pomodoro():
 
 def button_a_pressed(pin):
     global selected_schedule
+    if standby: toggle_standby(None)
     reset_off_counter()
     if ps_current_state == IDLE:    
         led.set_rgb(0,0,255)
@@ -108,6 +120,7 @@ def button_a_pressed(pin):
 
 def button_b_pressed(pin):
     global selected_pause
+    if standby: toggle_standby(None)
     reset_off_counter()
     if ps_current_state == IDLE:
         led.set_rgb(0,0,255)    
@@ -121,6 +134,7 @@ def button_b_pressed(pin):
 # Run / Interruption
 def button_x_pressed(pin):
     global ps_active, ps_remaining_seconds, ps_current_state, ps_cyles_done
+    if standby: toggle_standby(None)
     reset_off_counter()
     if ps_current_state == IDLE:
         start_pomodoro()
@@ -130,10 +144,12 @@ def button_x_pressed(pin):
 # Reset   
 def button_y_pressed(pin):
     global reset_button_counter
+    if standby: toggle_standby(None)
     reset_button_counter += 1
     if reset_button_counter == 2:
         reset_pomodoro()
         led.set_rgb(0,0,0)
+        standby_timer.init(mode=Timer.ONE_SHOT, period=60000, callback=toggle_standby)
 
 
 
@@ -142,10 +158,10 @@ graphics = PicoGraphics(DISPLAY_PICO_DISPLAY, pen_type=PEN_P8, rotate=0)
 
 # Status LED
 led = RGBLED(6, 7, 8)
-led.set_rgb(255,0,0)
 
-# The timer
+# The timers
 timer = machine.Timer()
+standby_timer = machine.Timer()
 
 DEV_MODE = False # Set True for faster test runs
 
@@ -203,4 +219,9 @@ reset_button_counter = 0
 standby = False
 
 led.set_rgb(0,0,0)
+graphics.set_backlight(1.0)
+standby_timer.init(mode=Timer.ONE_SHOT, period=60000, callback=toggle_standby)
 draw_pomodoro()
+
+while True:
+    pass
